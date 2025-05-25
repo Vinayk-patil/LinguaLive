@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useRef } from 'react';
@@ -21,7 +22,7 @@ export default function WebcamFeed({ stream, hasPermission }: WebcamFeedProps) {
   }, [stream]);
 
   return (
-    <Card className="overflow-hidden shadow-md aspect-video flex items-center justify-center bg-muted">
+    <Card className="overflow-hidden shadow-md aspect-video bg-muted"> {/* Removed flex items-center justify-center */}
       <CardContent className="p-0 w-full h-full flex items-center justify-center">
         {hasPermission === null && (
           <div className="flex flex-col items-center justify-center text-muted-foreground">
@@ -34,7 +35,7 @@ export default function WebcamFeed({ stream, hasPermission }: WebcamFeedProps) {
               <VideoOff className="h-5 w-5" />
               <AlertTitle>Camera Access Denied</AlertTitle>
               <AlertDescription>
-                LinguaLive needs camera and microphone access to function. 
+                LinguaLive needs camera and microphone access to function.
                 Please enable them in your browser settings and refresh the page.
               </AlertDescription>
             </Alert>
@@ -50,41 +51,10 @@ export default function WebcamFeed({ stream, hasPermission }: WebcamFeedProps) {
             ref={videoRef}
             autoPlay
             playsInline
-            muted 
+            muted
             className="w-full h-full object-cover"
             data-ai-hint="webcam placeholder"
           />
-        )}
-         {/* The video tag below is likely redundant or part of an older structure. 
-             The videoRef should ideally point to a single, consistently rendered video element.
-             However, the current error is a ReferenceError. */}
-         <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline style={{ display: (hasPermission && stream) ? 'block' : 'none' }}/>
-        
-        {/* Corrected hasCameraPermission to hasPermission in the line below */}
-        { !(hasPermission && stream) && hasPermission !== false && (
-             <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted text-muted-foreground p-4 text-center" style={{ display: (hasPermission === null || (hasPermission === true && !stream)) ? 'flex' : 'none' }}>
-                {hasPermission === null && (
-                    <>
-                        <Loader2 size={48} className="mb-2 animate-spin text-primary"/>
-                        <p>Checking camera permissions...</p>
-                    </>
-                )}
-                {hasPermission === true && !stream && (
-                    <>
-                        <Loader2 size={48} className="mb-2 animate-spin text-primary"/>
-                        <p>Initializing webcam...</p>
-                    </>
-                )}
-            </div>
-        )}
-        {hasPermission === false && (
-             <Alert variant="destructive" className="m-4 absolute inset-0 flex flex-col items-center justify-center">
-              <VideoOff className="h-5 w-5 mb-2" />
-              <AlertTitle>Camera Access Denied</AlertTitle>
-              <AlertDescription>
-                Please enable camera and microphone access in your browser settings.
-              </AlertDescription>
-            </Alert>
         )}
       </CardContent>
     </Card>
