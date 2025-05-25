@@ -25,7 +25,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`} suppressHydrationWarning={true}>
+    <html lang="en" className="font-debug-placeholder" suppressHydrationWarning={true}>
       <body className="antialiased flex flex-col min-h-screen" suppressHydrationWarning={true}>
         <AppHeader />
         <main className="flex-grow container mx-auto px-4 py-8">
