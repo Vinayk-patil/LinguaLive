@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import LiveTranscriptionTab from './LiveTranscriptionTab';
 import CorrectedGrammarTab from './CorrectedGrammarTab';
 import NextQuestionTab from './NextQuestionTab';
