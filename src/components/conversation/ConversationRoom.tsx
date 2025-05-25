@@ -155,8 +155,6 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
         setMediaStream(stream);
         setHasCameraPermission(true);
         
-        // Set initial question only if it's not already set (e.g. by previous run or topic change)
-        // And only if we have permission (otherwise it might show before permission screen)
         if (!nextAiQuestionText && topic) { 
             const initialPrompt = `Let's talk about ${topic}. What are your first thoughts?`;
             setNextAiQuestionText(initialPrompt);
@@ -185,7 +183,7 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [topic, fetchIdealAnswer, toast]); // Dependencies for initial setup and topic changes
+  }, [topic, fetchIdealAnswer, toast, nextAiQuestionText]); // Added nextAiQuestionText dependency
 
 
   // Effect for managing speech recognition event listeners
@@ -214,8 +212,9 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
         if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = setTimeout(() => {
           const textToProcess = accumulatedFinalTranscriptRef.current;
-          const latestUtteranceForQuestion = finalTranscriptChunk.trim(); // Use the last chunk for question context
-          const fullContextForAnalysis = liveTranscript + textToProcess; // Use more complete context for grammar/feedback
+          // Use the last utterance for question context, but the full accumulated transcript for grammar/feedback
+          const latestUtteranceForQuestion = finalTranscriptChunk.trim(); 
+          const fullContextForAnalysis = liveTranscript + textToProcess;
 
           processSpeechAndGenerateNextContent(latestUtteranceForQuestion, fullContextForAnalysis);
           accumulatedFinalTranscriptRef.current = ''; 
@@ -227,64 +226,62 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
       console.error('Speech recognition error:', event.error);
       let errorMsg = `Speech recognition error: ${event.error}.`;
       if (event.error === 'no-speech') {
-        // This can happen during pauses, let onend handle potential restart
+        toast({ 
+            title: 'No Speech Detected', 
+            description: "We couldn't hear you. Please try speaking louder or check your microphone.",
+            variant: 'default' 
+        });
         return; 
       } else if (event.error === 'audio-capture') {
         errorMsg = 'Microphone error. Please check your microphone settings.';
         toast({ title: 'Critical Error', description: errorMsg, variant: 'destructive' });
         setIsRecording(false); 
-        userStoppedManuallyRef.current = true; // Prevent onend restart for critical errors
+        userStoppedManuallyRef.current = true;
         return;
       } else if (event.error === 'not-allowed') {
         errorMsg = 'Permission to use microphone was denied or not granted.';
-        setHasCameraPermission(false); // Reflect permission status
+        setHasCameraPermission(false); 
         toast({ title: 'Critical Error', description: errorMsg, variant: 'destructive' });
         setIsRecording(false);
-        userStoppedManuallyRef.current = true; // Prevent onend restart
+        userStoppedManuallyRef.current = true; 
         return;
       } else if (event.error === 'network') {
         errorMsg = 'Network error during speech recognition.';
         toast({ title: 'Network Issue', description: `${errorMsg} Attempting to recover.`, variant: 'default' });
-        // Let onend attempt to restart for network issues
         return;
       }
-      // For other generic errors, toast but don't necessarily stop recording here.
-      // Let onend attempt restart if isRecording is still true and not manually stopped.
       toast({ title: 'Speech Recognition Issue', description: `${errorMsg} Attempting to continue.`, variant: 'default' });
     };
     
     recognition.onend = () => {
       if (isRecording && !userStoppedManuallyRef.current) {
-        console.log('Speech recognition ended unexpectedly, attempting to restart...');
+        console.log('Speech recognition ended, attempting to restart...');
         try {
           if(recognitionRef.current && typeof recognitionRef.current.start === 'function') {
             recognitionRef.current.start();
           } else {
             console.warn('Recognition object or start method not available for restart in onend.');
             toast({ title: 'Recovery Issue', description: 'Speech recognition service unavailable for restart.', variant: 'destructive'});
-            // If restart is impossible, we should reflect that recording has stopped.
-            // setIsRecording(false); 
-            // userStoppedManuallyRef.current = true; // Prevent further fruitless attempts
+            setIsRecording(false); 
+            userStoppedManuallyRef.current = true;
           }
         } catch (e) {
           console.error("Error restarting speech recognition in onend:", e);
           toast({ title: 'Recovery Failed', description: 'Could not restart speech recognition after it stopped.', variant: 'destructive'});
-          // If restart fails, update state
-          // setIsRecording(false); 
-          // userStoppedManuallyRef.current = true;
+          setIsRecording(false); 
+          userStoppedManuallyRef.current = true;
         }
       }
     };
 
     return () => {
-      // Cleanup specific listeners when this effect re-runs or component unmounts
       if (recognitionRef.current) {
         recognitionRef.current.onresult = null;
         recognitionRef.current.onerror = null;
         recognitionRef.current.onend = null;
       }
     };
-  }, [isRecording, processSpeechAndGenerateNextContent, toast, setHasCameraPermission, liveTranscript]);
+  }, [isRecording, processSpeechAndGenerateNextContent, toast, liveTranscript]);
 
 
   const handleStartRecording = () => {
@@ -294,9 +291,9 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
       setLiveTranscript('');
       setInterimTranscript('');
       setCorrectedGrammarText('');
-      // Initial question is set by the main useEffect or if topic changes.
-      // Don't clear nextAiQuestionText here to allow conversation continuation
+      // setNextAiQuestionText(''); // Keep current question or allow initial useEffect to set it
       setAiCoachFeedback(null);
+      setIdealAnswerText(''); // Clear ideal answer too
       setAudioUrl(null);
       audioChunksRef.current = [];
       accumulatedFinalTranscriptRef.current = '';
@@ -322,10 +319,9 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
           const url = URL.createObjectURL(audioBlob);
           setAudioUrl(url);
         };
-        mediaRecorderRef.current.onerror = (event: Event) => { // Added error handler
+        mediaRecorderRef.current.onerror = (event: Event) => { 
           console.error('MediaRecorder error:', event);
           toast({ title: 'Recording Error', description: 'An error occurred with the audio recorder.', variant: 'destructive'});
-          // If media recorder fails, we might want to stop speech recognition too
           if (recognitionRef.current) recognitionRef.current.stop();
           setIsRecording(false);
           userStoppedManuallyRef.current = true;
@@ -361,12 +357,14 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
 
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     const remainingText = accumulatedFinalTranscriptRef.current.trim();
+    const fullContextForAnalysis = liveTranscript + remainingText;
     if (remainingText) {
-      // Use the last part of remainingText for question context, and full context for others
-      const fullContextForAnalysis = liveTranscript + remainingText;
       processSpeechAndGenerateNextContent(remainingText, fullContextForAnalysis);
       accumulatedFinalTranscriptRef.current = '';
+    } else if (liveTranscript.trim() && !remainingText) { // Process live transcript if no new accumulated text
+      processSpeechAndGenerateNextContent("", liveTranscript.trim());
     }
+
     toast({ title: 'Recording Stopped' });
   };
 
