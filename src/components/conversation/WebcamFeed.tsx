@@ -55,8 +55,13 @@ export default function WebcamFeed({ stream, hasPermission }: WebcamFeedProps) {
             data-ai-hint="webcam placeholder"
           />
         )}
+         {/* The video tag below is likely redundant or part of an older structure. 
+             The videoRef should ideally point to a single, consistently rendered video element.
+             However, the current error is a ReferenceError. */}
          <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline style={{ display: (hasPermission && stream) ? 'block' : 'none' }}/>
-        { !(hasCameraPermission && stream) && hasPermission !== false && (
+        
+        {/* Corrected hasCameraPermission to hasPermission in the line below */}
+        { !(hasPermission && stream) && hasPermission !== false && (
              <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted text-muted-foreground p-4 text-center" style={{ display: (hasPermission === null || (hasPermission === true && !stream)) ? 'flex' : 'none' }}>
                 {hasPermission === null && (
                     <>
