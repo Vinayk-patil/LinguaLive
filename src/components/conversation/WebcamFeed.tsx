@@ -22,7 +22,7 @@ export default function WebcamFeed({ stream, hasPermission }: WebcamFeedProps) {
   }, [stream]);
 
   return (
-    <Card className="overflow-hidden shadow-md aspect-video bg-muted"> {/* Removed flex items-center justify-center */}
+    <Card className="overflow-hidden shadow-md aspect-video bg-muted">
       <CardContent className="p-0 w-full h-full flex items-center justify-center">
         {hasPermission === null && (
           <div className="flex flex-col items-center justify-center text-muted-foreground">
@@ -53,6 +53,7 @@ export default function WebcamFeed({ stream, hasPermission }: WebcamFeedProps) {
             playsInline
             muted
             className="w-full h-full object-cover"
+            style={{ transform: 'scaleX(-1)' }}
             data-ai-hint="webcam placeholder"
           />
         )}
