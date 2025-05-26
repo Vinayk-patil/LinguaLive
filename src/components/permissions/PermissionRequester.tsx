@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Mic, Video, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Mic, Video, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 type PermissionStatus = 'idle' | 'pending' | 'granted' | 'denied';
@@ -24,48 +24,39 @@ export default function PermissionRequester() {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      // Successfully got both
       videoGranted = true;
       audioGranted = true;
       setVideoStatus('granted');
       setAudioStatus('granted');
-      // Stop tracks immediately as they are only for permission check here
       stream.getTracks().forEach(track => track.stop());
     } catch (err) {
       console.error('Error requesting permissions:', err);
-      // Check what was denied
+      const newVideoStatus = 'denied';
+      const newAudioStatus = 'denied';
+      setVideoStatus(newVideoStatus);
+      setAudioStatus(newAudioStatus);
+
       if (err instanceof DOMException) {
         if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-          // User denied one or both
-          // We can't know which one specifically without separate requests,
-          // but for this app, both are needed.
-          setVideoStatus('denied');
-          setAudioStatus('denied');
            toast({
             title: 'Permissions Denied',
-            description: 'Webcam and microphone access are required to use LinguaLive. Please enable them in your browser settings.',
+            description: 'Webcam and microphone access are required. Please enable them in your browser settings.',
             variant: 'destructive',
           });
         } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-           setVideoStatus('denied');
-           setAudioStatus('denied');
            toast({
             title: 'Devices Not Found',
             description: 'No webcam or microphone found. Please ensure they are connected and enabled.',
             variant: 'destructive',
           });
         } else {
-           setVideoStatus('denied');
-           setAudioStatus('denied');
            toast({
             title: 'Permission Error',
-            description: 'An error occurred while trying to access your webcam and microphone.',
+            description: 'An error occurred accessing your webcam and microphone.',
             variant: 'destructive',
           });
         }
       } else {
-        setVideoStatus('denied');
-        setAudioStatus('denied');
          toast({
             title: 'Permission Error',
             description: 'An unexpected error occurred.',
@@ -78,15 +69,13 @@ export default function PermissionRequester() {
       toast({
         title: 'Permissions Granted!',
         description: 'Redirecting to topic selection...',
-        className: 'bg-green-500 text-white',
+        className: 'bg-green-600 text-white dark:bg-green-700 dark:text-white', // Use a success color
       });
       router.push('/topic-selection');
     }
-
   }, [router, toast]);
 
   useEffect(() => {
-    // Automatically request permissions when component mounts if not already granted or denied
     if (videoStatus === 'idle' && audioStatus === 'idle') {
       requestPermissions();
     }
@@ -97,48 +86,56 @@ export default function PermissionRequester() {
   const anyPending = videoStatus === 'pending' || audioStatus === 'pending';
 
   return (
-    <Card className="w-full max-w-md shadow-xl">
-      <CardHeader>
-        <CardTitle className="text-2xl text-center">Welcome to LinguaLive!</CardTitle>
-        <CardDescription className="text-center">
-          To help you practice your spoken English, we need access to your webcam and microphone.
+    <Card className="w-full max-w-lg shadow-xl rounded-xl border-border/70">
+      <CardHeader className="text-center p-6 sm:p-8">
+        <CardTitle className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Welcome to LinguaLive!</CardTitle>
+        <CardDescription className="text-base text-muted-foreground">
+          To practice your spoken English, we need access to your webcam and microphone.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-          <div className="flex items-center gap-3">
-            <Video className="text-primary" />
-            <span>Webcam Access</span>
-          </div>
-          {videoStatus === 'granted' && <CheckCircle2 className="text-green-500" />}
-          {videoStatus === 'denied' && <AlertTriangle className="text-destructive" />}
-          {videoStatus === 'pending' && <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>}
-        </div>
-        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-          <div className="flex items-center gap-3">
-            <Mic className="text-primary" />
-            <span>Microphone Access</span>
-          </div>
-          {audioStatus === 'granted' && <CheckCircle2 className="text-green-500" />}
-          {audioStatus === 'denied' && <AlertTriangle className="text-destructive" />}
-          {audioStatus === 'pending' && <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>}
-        </div>
+      <CardContent className="space-y-4 p-6 sm:p-8 pt-0">
+        <PermissionItem icon={Video} label="Webcam Access" status={videoStatus} />
+        <PermissionItem icon={Mic} label="Microphone Access" status={audioStatus} />
         
         {anyDenied && (
-          <p className="text-sm text-destructive text-center">
+          <p className="text-sm text-destructive text-center pt-2">
             Please grant permissions to continue. You may need to adjust your browser settings.
           </p>
         )}
       </CardContent>
-      <CardFooter>
+      <CardFooter className="p-6 sm:p-8 pt-0">
         <Button 
           onClick={requestPermissions} 
-          className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
+          className="w-full text-base py-3 h-auto"
+          size="lg"
+          variant={allGranted ? "default" : "primary"}
           disabled={anyPending || allGranted}
         >
-          {anyPending ? 'Requesting...' : allGranted ? 'Permissions Granted' : 'Grant Permissions'}
+          {anyPending && <Loader2 className="mr-2 animate-spin" size={20} />}
+          {anyPending ? 'Requesting Permissions...' : allGranted ? 'Permissions Granted' : 'Grant Permissions'}
         </Button>
       </CardFooter>
     </Card>
+  );
+}
+
+interface PermissionItemProps {
+  icon: React.ElementType;
+  label: string;
+  status: PermissionStatus;
+}
+
+function PermissionItem({ icon: Icon, label, status }: PermissionItemProps) {
+  return (
+    <div className="flex items-center justify-between p-4 bg-muted/60 rounded-lg border border-border/50">
+      <div className="flex items-center gap-3">
+        <Icon className="text-primary" size={20} />
+        <span className="text-foreground font-medium">{label}</span>
+      </div>
+      {status === 'granted' && <CheckCircle2 className="text-green-500" size={20} />}
+      {status === 'denied' && <AlertTriangle className="text-destructive" size={20} />}
+      {status === 'pending' && <Loader2 className="animate-spin text-primary" size={20} />}
+      {status === 'idle' && <div className="w-5 h-5"></div>}
+    </div>
   );
 }

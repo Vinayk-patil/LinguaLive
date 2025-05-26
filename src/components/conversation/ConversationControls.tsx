@@ -1,9 +1,10 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Mic, StopCircle, Play, Pause, AlertTriangle } from 'lucide-react';
+import { Mic, StopCircle, Play, Pause, AlertTriangle, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useRef, useState, useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 interface ConversationControlsProps {
   isRecording: boolean;
@@ -11,6 +12,7 @@ interface ConversationControlsProps {
   onStopRecording: () => void;
   audioUrl: string | null;
   isPermissionGranted: boolean | null;
+  isLoading: boolean; // To disable controls during AI processing
 }
 
 export default function ConversationControls({
@@ -19,12 +21,13 @@ export default function ConversationControls({
   onStopRecording,
   audioUrl,
   isPermissionGranted,
+  isLoading,
 }: ConversationControlsProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
-    // When a new audio URL comes in, pause any current playback and reset state.
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -37,85 +40,104 @@ export default function ConversationControls({
     if (audioRef.current) {
       if (isPlaying) {
         audioRef.current.pause();
+        setIsPlaying(false);
       } else {
-        audioRef.current.play().catch(error => {
+        audioRef.current.play().then(() => {
+          setIsPlaying(true);
+        }).catch(error => {
           console.error("Error playing audio:", error);
-          // Potentially show a toast message to the user
+          if (error.name === 'AbortError') {
+            // This is common if the src changes rapidly, usually okay.
+            setIsPlaying(false); // Ensure state is correct
+          } else {
+            toast({
+              title: "Playback Error",
+              description: "Could not play audio.",
+              variant: "destructive",
+            });
+            setIsPlaying(false);
+          }
         });
       }
-      setIsPlaying(!isPlaying);
     }
   };
   
   const handleAudioEnded = () => {
     setIsPlaying(false);
     if (audioRef.current) {
-      audioRef.current.currentTime = 0; // Reset for next play
+      audioRef.current.currentTime = 0;
     }
   };
 
-  const startButtonDisabled = isRecording || isPermissionGranted === false || isPermissionGranted === null;
-  const stopButtonDisabled = !isRecording;
+  const baseButtonDisabled = isLoading || isPermissionGranted === null;
+  const startButtonDisabled = baseButtonDisabled || isRecording || isPermissionGranted === false;
+  const stopButtonDisabled = baseButtonDisabled || !isRecording;
 
   return (
-    <Card className="shadow-md">
+    <Card className="shadow-lg rounded-xl border-border/70">
       <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex gap-2">
+        <div className="flex gap-2 w-full sm:w-auto">
           {!isRecording ? (
             <Button 
               onClick={onStartRecording} 
-              className="bg-green-500 hover:bg-green-600 text-white"
+              className="flex-1 sm:flex-none bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700 text-white text-base py-3 h-auto"
               disabled={startButtonDisabled}
               aria-label="Start Speaking"
+              size="lg"
             >
-              <Mic className="mr-2 h-4 w-4" /> Start Speaking
+              <Mic className="mr-2" size={18} /> Start Speaking
             </Button>
           ) : (
             <Button 
               onClick={onStopRecording} 
               variant="destructive"
+              className="flex-1 sm:flex-none text-base py-3 h-auto"
               disabled={stopButtonDisabled}
               aria-label="Stop Speaking"
+              size="lg"
             >
-              <StopCircle className="mr-2 h-4 w-4" /> Stop Speaking
+              {isLoading ? <Loader2 className="mr-2 animate-spin" size={18}/> : <StopCircle className="mr-2" size={18}/>}
+              {isLoading ? 'Processing...' : 'Stop Speaking'}
             </Button>
           )}
         </div>
         
         {isPermissionGranted === false && (
-          <div className="flex items-center text-sm text-destructive">
-            <AlertTriangle className="mr-2 h-4 w-4" />
-            Permissions denied.
+          <div className="flex items-center text-sm text-destructive font-medium">
+            <AlertTriangle className="mr-2" size={18} />
+            Permissions denied. Enable in browser.
           </div>
         )}
          {isPermissionGranted === null && (
           <div className="flex items-center text-sm text-muted-foreground">
+            <Loader2 className="animate-spin mr-2" size={18} />
             Checking permissions...
           </div>
         )}
 
-        {audioUrl && (
-          <div className="flex items-center gap-2">
+        {audioUrl && isPermissionGranted && (
+          <div className="flex items-center gap-2 sm:gap-3">
+             <p className="text-sm text-muted-foreground hidden sm:block">Your recording:</p>
             <Button 
               onClick={handlePlayPause} 
               variant="outline" 
               size="icon" 
-              disabled={!audioUrl}
+              className="h-10 w-10 rounded-full"
+              disabled={!audioUrl || isLoading}
               aria-label={isPlaying ? "Pause playback" : "Play recording"}
             >
-              {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              {isPlaying ? <Pause size={20} /> : <Play size={20} />}
             </Button>
             <audio 
-              key={audioUrl} // Force re-render on new URL
+              key={audioUrl}
               ref={audioRef} 
               src={audioUrl} 
               onEnded={handleAudioEnded} 
               className="hidden" 
               onLoadedMetadata={() => {
-                 if (audioRef.current) audioRef.current.currentTime = 0; // Ensure it starts from beginning
+                 if (audioRef.current) audioRef.current.currentTime = 0;
               }}
             />
-            <p className="text-sm text-muted-foreground">Listen to your recording</p>
           </div>
         )}
       </CardContent>

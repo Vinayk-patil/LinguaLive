@@ -3,100 +3,100 @@
 @tailwind utilities;
 
 body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; /* Fallback font for diagnosis */
+  font-family: var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
 
 @layer base {
   :root {
-    --background: 192 59% 92%; /* Light, desaturated blue #E0F4F7 */
-    --foreground: 210 30% 25%; /* Darker blue-grey for text */
+    --background: 210 40% 98%; /* Very light cool grey */
+    --foreground: 220 15% 25%; /* Darker cool grey for text */
 
-    --card: 192 59% 95%;
-    --card-foreground: 210 30% 25%;
+    --card: 0 0% 100%; /* White */
+    --card-foreground: 220 15% 25%;
 
-    --popover: 192 59% 95%;
-    --popover-foreground: 210 30% 25%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 25%;
 
-    --primary: 197 58% 73%; /* Soft sky blue #87CEEB */
-    --primary-foreground: 210 40% 15%; /* Darker text for primary buttons */
+    --primary: 205 70% 50%; /* Vibrant blue */
+    --primary-foreground: 210 40% 98%; /* Light text for primary buttons */
 
-    --secondary: 195 55% 85%;
-    --secondary-foreground: 210 40% 15%;
+    --secondary: 210 30% 90%; /* Lighter cool grey for secondary elements */
+    --secondary-foreground: 220 15% 25%;
 
-    --muted: 195 50% 88%;
-    --muted-foreground: 200 35% 45%;
+    --muted: 210 30% 94%; /* Even lighter for muted backgrounds */
+    --muted-foreground: 220 10% 45%; /* Softer text for muted elements */
 
-    --accent: 180 56% 66%; /* Gentle teal #77D8D8 */
-    --accent-foreground: 210 40% 15%; /* Darker text for accent buttons */
+    --accent: 170 60% 45%; /* Sophisticated teal/cyan */
+    --accent-foreground: 0 0% 100%; /* White text for accent buttons */
 
-    --destructive: 0 72% 51%; /* Adjusted for better visibility */
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 197 40% 80%;
-    --input: 197 40% 85%;
-    --ring: 197 58% 65%; /* Primary color, slightly darker for focus */
+    --border: 210 20% 88%; /* Subtle border */
+    --input: 210 30% 92%; /* Light input background */
+    --ring: 205 70% 60%; /* Primary color for focus rings */
 
-    --radius: 0.5rem;
+    --radius: 0.75rem; /* Slightly larger radius for a modern feel */
 
-    --chart-1: 197 58% 73%;
-    --chart-2: 180 56% 66%;
-    --chart-3: 210 50% 60%;
-    --chart-4: 190 60% 70%;
-    --chart-5: 200 55% 65%;
+    --chart-1: 205 70% 50%;
+    --chart-2: 170 60% 45%;
+    --chart-3: 200 65% 55%;
+    --chart-4: 190 60% 60%;
+    --chart-5: 210 60% 65%;
 
-    --sidebar-background: 200 60% 90%;
-    --sidebar-foreground: 210 30% 20%;
-    --sidebar-primary: 197 58% 68%;
-    --sidebar-primary-foreground: 210 40% 10%;
-    --sidebar-accent: 180 56% 60%;
-    --sidebar-accent-foreground: 210 40% 10%;
-    --sidebar-border: 197 40% 75%;
-    --sidebar-ring: 197 58% 60%;
+    --sidebar-background: 220 18% 12%; /* Example: Darker for sidebar in a different context */
+    --sidebar-foreground: 210 30% 85%;
+    --sidebar-primary: 205 70% 60%;
+    --sidebar-primary-foreground: 220 18% 12%;
+    --sidebar-accent: 170 60% 55%;
+    --sidebar-accent-foreground: 220 18% 12%;
+    --sidebar-border: 220 15% 30%;
+    --sidebar-ring: 205 70% 50%;
   }
 
   .dark {
-    --background: 210 20% 12%; /* Dark blue-grey */
-    --foreground: 192 50% 85%; /* Light desaturated blue text */
+    --background: 220 18% 12%; /* Very dark desaturated blue */
+    --foreground: 210 30% 85%; /* Light grey for text */
 
-    --card: 210 20% 15%;
-    --card-foreground: 192 50% 85%;
+    --card: 220 18% 16%; /* Slightly lighter dark blue for cards */
+    --card-foreground: 210 30% 85%;
 
-    --popover: 210 20% 15%;
-    --popover-foreground: 192 50% 85%;
+    --popover: 220 18% 20%; /* Darker popover */
+    --popover-foreground: 210 30% 85%;
 
-    --primary: 197 58% 65%; /* Soft sky blue, slightly desaturated for dark */
-    --primary-foreground: 0 0% 98%;
+    --primary: 205 70% 60%; /* Blue, adjusted for dark mode */
+    --primary-foreground: 220 18% 12%; /* Dark text for primary buttons */
 
-    --secondary: 210 20% 25%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 220 15% 25%; /* Darker secondary */
+    --secondary-foreground: 210 30% 85%;
 
-    --muted: 210 20% 20%;
-    --muted-foreground: 192 40% 65%;
+    --muted: 220 15% 20%; /* Darker muted */
+    --muted-foreground: 210 25% 65%; /* Lighter muted text */
 
-    --accent: 180 56% 58%; /* Gentle teal, slightly desaturated for dark */
-    --accent-foreground: 0 0% 98%;
+    --accent: 170 60% 55%; /* Teal/cyan, adjusted for dark mode */
+    --accent-foreground: 220 18% 10%; /* Darker text for accent buttons */
 
-    --destructive: 0 63% 40%; /* Adjusted for dark */
+    --destructive: 0 63% 50%; /* Destructive for dark */
     --destructive-foreground: 0 0% 98%;
 
-    --border: 210 20% 30%;
-    --input: 210 20% 30%;
-    --ring: 197 58% 55%;
-
-    --chart-1: 197 58% 65%;
-    --chart-2: 180 56% 58%;
-    --chart-3: 210 50% 50%;
-    --chart-4: 190 60% 60%;
-    --chart-5: 200 55% 55%;
+    --border: 220 15% 30%; /* Darker border */
+    --input: 220 15% 25%; /* Darker input */
+    --ring: 205 70% 55%; /* Ring for dark mode */
     
-    --sidebar-background: 210 20% 10%;
-    --sidebar-foreground: 192 50% 80%;
-    --sidebar-primary: 197 58% 60%;
+    --chart-1: 205 70% 60%;
+    --chart-2: 170 60% 55%;
+    --chart-3: 200 65% 65%;
+    --chart-4: 190 60% 70%;
+    --chart-5: 210 60% 75%;
+
+    --sidebar-background: 220 18% 10%;
+    --sidebar-foreground: 210 30% 80%;
+    --sidebar-primary: 205 70% 55%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 180 56% 50%;
+    --sidebar-accent: 170 60% 50%;
     --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 210 20% 25%;
-    --sidebar-ring: 197 58% 50%;
+    --sidebar-border: 220 15% 25%;
+    --sidebar-ring: 205 70% 50%;
   }
 }
 
@@ -105,6 +105,7 @@ body {
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1; /* Enable common ligatures and contextual alternates */
   }
 }
