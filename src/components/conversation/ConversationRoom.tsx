@@ -9,6 +9,7 @@ import CorrectedGrammarTab from './CorrectedGrammarTab';
 import NextQuestionTab from './NextQuestionTab';
 import AiCoachFeedbackTab from './AiCoachFeedbackTab';
 import IdealAnswerTab from './IdealAnswerTab';
+import RecordedVideoTab from './RecordedVideoTab'; // New import
 import WebcamFeed from './WebcamFeed';
 import ConversationControls from './ConversationControls';
 import { useToast } from '@/hooks/use-toast';
@@ -17,7 +18,7 @@ import { generateNextQuestion } from '@/ai/flows/ai-question-generator';
 import { aiCoachFeedback as getAiCoachFeedback } from '@/ai/flows/ai-coach-feedback';
 import { generateIdealAnswer } from '@/ai/flows/generate-ideal-answer-flow';
 import type { AiCoachFeedbackOutput } from '@/ai/flows/ai-coach-feedback';
-import { Loader2, FileText, Sparkles, CheckCircle, MessageSquareQuote, HelpCircle } from 'lucide-react';
+import { Loader2, FileText, Sparkles, CheckCircle, MessageSquareQuote, HelpCircle, Video as VideoIcon } from 'lucide-react'; // Added VideoIcon
 
 interface ConversationRoomProps {
   topic: string;
@@ -38,11 +39,16 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
   const [nextAiQuestionText, setNextAiQuestionText] = useState('');
   const [aiCoachFeedback, setAiCoachFeedback] = useState<AiCoachFeedbackOutput | null>(null);
   const [idealAnswerText, setIdealAnswerText] = useState('');
+  const [recordedVideoUrl, setRecordedVideoUrl] = useState<string | null>(null); // New state for video URL
 
   const [isRecording, setIsRecording] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+
+  const videoMediaRecorderRef = useRef<MediaRecorder | null>(null); // New ref for video recorder
+  const videoChunksRef = useRef<Blob[]>([]); // New ref for video chunks
+
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
 
@@ -78,13 +84,11 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
   }, [topic, toast]);
 
   const processSpeechAndGenerateNextContent = useCallback(async (lastUtterance: string, fullTranscript: string) => {
-    if (!lastUtterance.trim() && !fullTranscript.trim()) return;
+    if (!fullTranscript.trim()) return;
 
     const grammarInputText = fullTranscript.trim();
-    const questionInputText = lastUtterance.trim(); // Use last utterance for question to keep it contextual to recent speech
+    const questionInputText = lastUtterance.trim();
     const feedbackInputText = fullTranscript.trim();
-
-    if (!grammarInputText) return;
 
     setIsLoadingGrammar(true);
     if (questionInputText) setIsLoadingQuestion(true);
@@ -98,9 +102,6 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
       if (questionInputText) {
         promises.push(generateNextQuestion({ topic, userResponse: questionInputText }));
       } else {
-        // If there's no specific last utterance (e.g., only accumulated transcript from a previous session fragment),
-        // we might not want to generate a new question, or use a generic prompt.
-        // For now, we'll resolve with null if no questionInputText.
         promises.push(Promise.resolve(null));
       }
       promises.push(getAiCoachFeedback({ transcription: feedbackInputText, topic }));
@@ -135,7 +136,6 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
   }, [topic, toast, fetchIdealAnswer]);
 
 
-  // useEffect for initializing SpeechRecognition and media permissions
   useEffect(() => {
     const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) {
@@ -144,7 +144,7 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
         description: 'Speech recognition is not supported in this browser. Try Chrome or Edge.',
         variant: 'destructive',
       });
-      setHasCameraPermission(false); // Also imply no mic permission if SR isn't supported
+      setHasCameraPermission(false);
       return;
     }
 
@@ -161,11 +161,10 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
         setMediaStream(stream);
         setHasCameraPermission(true);
         
-        // Fetch initial question only if it hasn't been fetched yet and topic is available
         if (!nextAiQuestionText && topic) { 
             const initialPrompt = `Let's talk about ${topic}. What are your first thoughts?`;
             setNextAiQuestionText(initialPrompt);
-            fetchIdealAnswer(initialPrompt); // Fetch ideal answer for initial question
+            fetchIdealAnswer(initialPrompt);
         }
 
       } catch (err) {
@@ -177,7 +176,7 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
 
     getMediaPermissionsAndInitialQuestion();
 
-    return () => { // Cleanup for this effect (main setup)
+    return () => {
       console.log("Main useEffect cleanup: Stopping recognition and media tracks.");
       if (recognitionRef.current && typeof recognitionRef.current.stop === 'function') {
         try {
@@ -192,29 +191,28 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
         mediaRecorderRef.current.stop();
       }
+      if (videoMediaRecorderRef.current && videoMediaRecorderRef.current.state === 'recording') { // Cleanup video recorder
+        videoMediaRecorderRef.current.stop();
+      }
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topic]); // Only re-run if topic changes (for initial question) or on mount for permissions
+  }, [topic]);
 
 
-  // useEffect for managing speech recognition lifecycle (listeners, start/stop)
   useEffect(() => {
-    if (!recognitionRef.current || hasCameraPermission === null) {
-      // Recognition not initialized or permission status pending
+    if (!recognitionRef.current || hasCameraPermission === null || !mediaStream) {
       return;
     }
     if (hasCameraPermission === false) {
-        // If permission was revoked or failed, ensure recording stops
         if (isRecording) setIsRecording(false);
         return;
     }
 
     const recognition = recognitionRef.current;
 
-    // Define event handlers within this effect so they capture the correct state
     const handleResult = (event: any) => {
       let finalTranscriptChunk = '';
       let currentInterim = '';
@@ -238,12 +236,10 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
           const currentFullTranscript = liveTranscript + (accumulatedFinalTranscriptRef.current.trim() ? (liveTranscript ? ' ' : '') + accumulatedFinalTranscriptRef.current.trim() : '');
 
           if (textToProcess) {
-             // Pass the latest finalized chunk for question generation context
-             // Pass the full accumulated transcript for grammar and feedback
             processSpeechAndGenerateNextContent(finalTranscriptChunk.trim(), currentFullTranscript);
             accumulatedFinalTranscriptRef.current = ''; 
           }
-        }, 2000); // Debounce for 2 seconds
+        }, 2000);
       }
     };
 
@@ -255,47 +251,41 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
             description: "We couldn't hear you. Please try speaking louder or check your microphone.",
             variant: 'default' 
         });
-        // Allow onend to attempt restart
         return; 
       } else if (event.error === 'audio-capture') {
         toast({ title: 'Microphone Error', description: 'Please check your microphone connection and settings.', variant: 'destructive' });
-        userStoppedManuallyRef.current = true; // Treat as a manual stop to prevent restart loop
-        setIsRecording(false); // This will trigger cleanup in this effect
+        userStoppedManuallyRef.current = true; 
+        setIsRecording(false);
         return;
       } else if (event.error === 'not-allowed') {
         toast({ title: 'Permission Error', description: 'Microphone permission denied. Please enable it in browser settings.', variant: 'destructive' });
-        setHasCameraPermission(false); // Update permission state
-        userStoppedManuallyRef.current = true; // Treat as a manual stop
+        setHasCameraPermission(false);
+        userStoppedManuallyRef.current = true;
         setIsRecording(false);
         return;
       } else if (event.error === 'network') {
         toast({ title: 'Network Issue', description: 'Speech recognition network error. Attempting to recover.', variant: 'default' });
-        // Allow onend to try and restart
         return; 
       }
-      // For other errors, show a generic message and let onend try to handle it
       toast({ title: 'Speech Recognition Issue', description: `Error: ${event.error}. Attempting to continue.`, variant: 'default' });
     };
     
     const handleEnd = () => {
-      // isRecording state here is from the closure of this useEffect instance.
-      // userStoppedManuallyRef.current is a ref, so it's always current.
       if (isRecording && !userStoppedManuallyRef.current) {
         console.log('Speech recognition ended, attempting to restart...');
         try {
           if(recognitionRef.current && typeof recognitionRef.current.start === 'function') {
-            recognitionRef.current.start(); // Attempt to restart
+            recognitionRef.current.start();
           } else {
             console.warn('Recognition object or start method not available for restart in onend.');
-             setIsRecording(false); // If cannot restart, ensure recording state is false
+             setIsRecording(false);
           }
         } catch (e: any) {
           if (e.name === 'InvalidStateError') {
             console.warn('SpeechRecognition.start() in onEnd called when already started. Ignoring.');
-            // It's already started, let it continue.
           } else {
             console.error("Error restarting speech recognition in onend:", e);
-            setIsRecording(false); // If restart fails for other reasons, ensure recording state is false
+            setIsRecording(false);
           }
         }
       } else {
@@ -307,24 +297,21 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
       console.log("useEffect [isRecording=true]: Attaching listeners and attempting to start recognition.");
       recognition.onresult = handleResult;
       recognition.onerror = handleError;
-      recognition.onend = handleEnd; // Attach the robust onend handler
+      recognition.onend = handleEnd;
       
       try {
         recognition.start();
         console.log("useEffect [isRecording=true]: recognition.start() called successfully.");
       } catch (e: any) {
-        if (e.name === 'InvalidStateError') { // This is the error name for "already started"
+        if (e.name === 'InvalidStateError') {
           console.warn("SpeechRecognition.start() in useEffect called when already started. Ignoring. Recognition should be running.");
-          // It's already started, so this specific call can be ignored.
-          // The listeners are re-attached which is important.
         } else {
           console.error("Error starting speech recognition in useEffect (isRecording true):", e);
           toast({ title: 'Recognition Start Error', description: `Could not start speech recognition: ${e.message}`, variant: 'destructive' });
-          setIsRecording(false); // If it's a different error, stop recording.
+          setIsRecording(false);
         }
       }
     } else {
-      // This block runs when isRecording becomes false, or on initial render if isRecording is false.
       console.log("useEffect [isRecording=false]: Stopping recognition and detaching listeners.");
       try {
         if (recognitionRef.current && typeof recognitionRef.current.stop === 'function') {
@@ -332,28 +319,21 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
           console.log("useEffect [isRecording=false]: recognition.stop() called.");
         }
       } catch (e: any) {
-        // It's possible stop() is called when already stopped, which can also throw an error in some implementations.
         console.warn("Error stopping recognition (isRecording false), possibly already stopped:", e.message);
       }
-      // Detach listeners to prevent them from firing on a stopped instance
-      // or an instance that's about to be cleaned up.
       recognition.onresult = null;
       recognition.onerror = null;
       recognition.onend = null;
     }
 
-    return () => { // Cleanup function for this effect
+    return () => {
       console.log("Speech recognition useEffect cleanup. Current isRecording:", isRecording);
-      // This cleanup runs when isRecording changes or hasCameraPermission changes, or when the component unmounts.
-      // Ensure recognition is stopped and listeners are detached.
       try {
         if (recognitionRef.current && typeof recognitionRef.current.stop === 'function') {
-          // Only stop if it was supposed to be recording or to ensure it is stopped
           recognitionRef.current.stop();
           console.log("Cleanup: recognition.stop() called.");
         }
       } catch (e: any) {
-         // This can happen if stop is called on an already stopped instance.
          console.warn("Error stopping recognition in effect cleanup:", e.message);
       }
       if (recognitionRef.current) {
@@ -362,11 +342,7 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
         recognitionRef.current.onend = null;
       }
     };
-  // Key dependencies:
-  // isRecording: To start/stop and manage listeners.
-  // hasCameraPermission: To ensure we only try to record if permission is granted.
-  // processSpeechAndGenerateNextContent, toast, liveTranscript: Dependencies for the event handlers.
-  }, [isRecording, hasCameraPermission, processSpeechAndGenerateNextContent, toast, liveTranscript]);
+  }, [isRecording, hasCameraPermission, processSpeechAndGenerateNextContent, toast, liveTranscript, mediaStream]);
 
 
   const handleStartRecording = () => {
@@ -386,60 +362,89 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
     setInterimTranscript('');
     setCorrectedGrammarText('');
     setAiCoachFeedback(null);
-    // setIdealAnswerText(''); // Keep ideal answer for the current question
     setAudioUrl(null);
     audioChunksRef.current = [];
     accumulatedFinalTranscriptRef.current = '';
 
+    // Video recording setup
+    setRecordedVideoUrl(null);
+    videoChunksRef.current = [];
+
     try {
+      // Audio Recorder
       mediaRecorderRef.current = new MediaRecorder(mediaStream);
       mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
       mediaRecorderRef.current.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const url = URL.createObjectURL(audioBlob);
         setAudioUrl(url);
-        audioChunksRef.current = []; // Clear chunks for next recording
+        audioChunksRef.current = [];
       };
-      mediaRecorderRef.current.onerror = (event: Event) => { // Specify Event type
-        console.error('MediaRecorder error:', event);
+      mediaRecorderRef.current.onerror = (event: Event) => {
+        console.error('MediaRecorder (audio) error:', event);
         toast({ title: 'Audio Recording Error', description: 'An error occurred with the audio recorder.', variant: 'destructive'});
-        userStoppedManuallyRef.current = true; // Treat as manual stop
-        setIsRecording(false); // This will trigger cleanup
+        userStoppedManuallyRef.current = true;
+        setIsRecording(false);
       };
       mediaRecorderRef.current.start();
-      toast({ title: 'Recording Started', description: 'Speak now!', className: 'bg-green-500 text-white dark:bg-green-700' });
+
+      // Video Recorder
+      try {
+        videoMediaRecorderRef.current = new MediaRecorder(mediaStream, { mimeType: 'video/webm;codecs=vp8,opus' });
+      } catch (e) {
+        console.warn("Failed to create MediaRecorder with video/webm;codecs=vp8,opus. Trying default.", e);
+        try {
+            videoMediaRecorderRef.current = new MediaRecorder(mediaStream, { mimeType: 'video/webm' });
+        } catch (e2) {
+            console.error("Failed to create MediaRecorder with video/webm. Trying system default.", e2);
+            videoMediaRecorderRef.current = new MediaRecorder(mediaStream); // Fallback to browser default
+        }
+      }
       
-      // Set isRecording to true, which will trigger the useEffect to attach listeners and start recognition
+      videoMediaRecorderRef.current.ondataavailable = (event) => {
+        if (event.data.size > 0) videoChunksRef.current.push(event.data);
+      };
+      videoMediaRecorderRef.current.onstop = () => {
+        const videoBlob = new Blob(videoChunksRef.current, { type: 'video/webm' });
+        const videoUrl = URL.createObjectURL(videoBlob);
+        setRecordedVideoUrl(videoUrl);
+        videoChunksRef.current = [];
+      };
+       videoMediaRecorderRef.current.onerror = (event: Event) => {
+        console.error('MediaRecorder (video) error:', event);
+        toast({ title: 'Video Recording Error', description: 'An error occurred with the video recorder.', variant: 'destructive'});
+        // Don't stop overall recording for video error alone if audio might still work
+      };
+      videoMediaRecorderRef.current.start();
+
+      toast({ title: 'Recording Started', description: 'Speak now!', className: 'bg-green-500 text-white dark:bg-green-700' });
       setIsRecording(true);
 
-    } catch (mediaRecorderError) {
-       console.error('Failed to start MediaRecorder:', mediaRecorderError);
-       toast({ title: 'Audio Recording Error', description: 'Could not start audio recording.', variant: 'destructive' });
-       // Do not set isRecording to true if MediaRecorder fails
+    } catch (recorderError) {
+       console.error('Failed to start MediaRecorder(s):', recorderError);
+       toast({ title: 'Recording Start Error', description: 'Could not start audio/video recording.', variant: 'destructive' });
     }
   };
 
   const handleStopRecording = () => {
     console.log("handleStopRecording called. Setting userStoppedManuallyRef to true and isRecording to false.");
     userStoppedManuallyRef.current = true; 
-    setIsRecording(false); // This triggers the cleanup in useEffect for speech recognition
+    setIsRecording(false);
 
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop();
     }
+    if (videoMediaRecorderRef.current && videoMediaRecorderRef.current.state === "recording") { // Stop video recorder
+      videoMediaRecorderRef.current.stop();
+    }
     
-    // Process any remaining text immediately
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     const remainingText = accumulatedFinalTranscriptRef.current.trim();
     const fullContextForAnalysis = liveTranscript + (remainingText ? (liveTranscript ? ' ' : '') + remainingText : '');
 
     if (fullContextForAnalysis.trim()) { 
-      // Use the last spoken part for question generation if available, else the whole remaining text.
-      // For grammar and feedback, use the entire context.
       const lastUtteranceForQuestion = remainingText || liveTranscript.trim().split(" ").pop() || "";
       processSpeechAndGenerateNextContent(lastUtteranceForQuestion, fullContextForAnalysis);
       accumulatedFinalTranscriptRef.current = '';
@@ -448,7 +453,6 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
   };
 
   const isLoadingAnything = isLoadingGrammar || isLoadingQuestion || isLoadingFeedback || isLoadingIdealAnswer;
-
 
   return (
     <div className="w-full h-full p-1 md:p-0 space-y-4 md:space-y-6">
@@ -470,12 +474,13 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full lg:col-span-3">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 mb-4 md:mb-6 p-1.5 h-auto bg-muted rounded-lg">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-6 mb-4 md:mb-6 p-1.5 h-auto bg-muted rounded-lg">
             <TabsTrigger value="transcription" className="text-xs sm:text-sm"><FileText className="mr-1.5 hidden sm:inline-block" size={16}/>Transcription</TabsTrigger>
             <TabsTrigger value="grammar" className="text-xs sm:text-sm"><CheckCircle className="mr-1.5 hidden sm:inline-block" size={16}/>Corrected</TabsTrigger>
             <TabsTrigger value="question" className="text-xs sm:text-sm"><HelpCircle className="mr-1.5 hidden sm:inline-block" size={16}/>Next Question</TabsTrigger>
             <TabsTrigger value="idealAnswer" className="text-xs sm:text-sm"><MessageSquareQuote className="mr-1.5 hidden sm:inline-block" size={16}/>Ideal Answer</TabsTrigger>
             <TabsTrigger value="feedback" className="text-xs sm:text-sm"><Sparkles className="mr-1.5 hidden sm:inline-block" size={16}/>AI Coach</TabsTrigger>
+            <TabsTrigger value="recordedVideo" className="text-xs sm:text-sm"><VideoIcon className="mr-1.5 hidden sm:inline-block" size={16}/>Recorded Video</TabsTrigger>
           </TabsList>
 
           <Card className="rounded-xl shadow-lg border-border/70">
@@ -499,6 +504,9 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
                   {isLoadingFeedback && <div className="flex flex-col justify-center items-center h-full text-muted-foreground"><Loader2 className="animate-spin text-primary mb-2" size={28} /><p>Analyzing feedback...</p></div>}
                   {!isLoadingFeedback &&<AiCoachFeedbackTab feedback={aiCoachFeedback} />}
                 </TabsContent>
+                <TabsContent value="recordedVideo" tabIndex={-1} className="mt-0">
+                  <RecordedVideoTab videoUrl={recordedVideoUrl} />
+                </TabsContent>
               </div>
             </CardContent>
           </Card>
@@ -519,4 +527,3 @@ export default function ConversationRoom({ topic }: ConversationRoomProps) {
     </div>
   );
 }
-
