@@ -9,7 +9,13 @@ export default function RecordedVideoTab({ videoUrl }: RecordedVideoTabProps) {
   return (
     <div className="w-full h-full flex flex-col items-center justify-center">
       {videoUrl ? (
-        <video src={videoUrl} controls className="w-full max-w-2xl aspect-video rounded-lg shadow-md bg-black" data-ai-hint="recorded video player">
+        <video 
+          src={videoUrl} 
+          controls 
+          className="w-full max-w-2xl aspect-video rounded-lg shadow-md bg-black" 
+          style={{ transform: 'scaleX(-1)' }}
+          data-ai-hint="recorded video player"
+        >
           Your browser does not support the video tag.
         </video>
       ) : (
